@@ -5,12 +5,14 @@ const domReady = (callback) => {
 		callback();
 	}
 };
+
 let md;
 domReady(() => {
 	md = window.markdownit();
 	renderPreviousMessages();
 });
 
+// Based on the message format of `{role: "user", content: "Hi"}`
 function createChatMessageElement(msg) {
 	const div = document.createElement('div');
 	div.className = `message ${msg.role}`;
@@ -70,7 +72,6 @@ async function sendMessage() {
 	};
 	const payload = { messages, config };
 
-	// Clear input field
 	input.value = '';
 
 	const response = await fetch('/api/chat', {
@@ -93,13 +94,13 @@ async function sendMessage() {
 		const { value, done } = await reader.read();
 		if (done) {
 			console.log('Stream done');
-			// this.chatDisabled = false;
-			// hljs.highlightAll();
 			break;
 		}
 		assistantMsg.content += value;
+		// Continually render the markdown => HTML
 		assistantMessage.innerHTML = md.render(assistantMsg.content);
 	}
+	// Highlight code on completion
 	highlightCode(assistantMessage);
 	messages.push(assistantMsg);
 	storeMessages(messages);
@@ -112,6 +113,6 @@ function resetChat() {
 }
 
 document.getElementById('chat-form').addEventListener('submit', function (e) {
-	e.preventDefault(); // Prevents the default form submission action
+	e.preventDefault();
 	sendMessage();
 });

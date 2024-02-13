@@ -1,8 +1,8 @@
 import { Ai } from '@cloudflare/ai';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/cloudflare-workers';
-import { streamText } from "hono/streaming";
-import { EventSourceParserStream } from "eventsource-parser/stream";
+import { streamText } from 'hono/streaming';
+import { EventSourceParserStream } from 'eventsource-parser/stream';
 import manifest from '__STATIC_CONTENT_MANIFEST';
 
 const app = new Hono();
@@ -27,7 +27,7 @@ app.post('/api/chat', async (c) => {
 
 	return streamText(c, async (stream) => {
 		for await (const msg of tokenStream) {
-			if (msg.data !== "[DONE]") {
+			if (msg.data !== '[DONE]') {
 				const data = JSON.parse(msg.data);
 				stream.write(data.response);
 			}
