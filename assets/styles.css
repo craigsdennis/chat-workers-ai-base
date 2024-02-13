@@ -1,0 +1,103 @@
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: row; /* Layout children in a row */
+    height: 100vh;
+  }
+  
+  .chat-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #E5F2FF; /* Ensures background color covers the entire container */
+    padding: 20px;
+    overflow: hidden; /* Keeps everything contained */
+  }
+  
+  #chat-area {
+    overflow-y: auto; /* Enables vertical scrolling for chat messages */
+    flex-grow: 1; /* Allows the chat area to expand and fill available space */
+  }
+  
+  .input-area {
+    position: fixed; /* Keeps the input area at the bottom */
+    bottom: 0;
+    left: 0;
+    right: 200px; /* Adjust to keep it within the chat container */
+    padding: 10px 20px;
+    background-color: #E5F2FF; /* Matches the chat container background */
+    display: flex;
+    box-sizing: border-box; /* Ensures padding is included in the width calculation */
+  }
+  
+  .input-area form {
+    display: flex;
+    width: 100%; /* Ensures the form fills the .input-area */
+  }
+  
+  .settings-container {
+    flex: 0 0 200px; /* Fixed width, doesn't grow or shrink */
+    height: 100vh; /* Full viewport height */
+    overflow-y: auto; /* Allows scrolling within the settings pane if content overflows */
+    padding: 20px;
+    background-color: #D6E9FF; /* Slightly darker shade of blue for contrast */
+    box-sizing: border-box; /* Includes padding in the width calculation */
+  }
+  .settings-container form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .settings-container select, .settings-container textarea {
+    margin-bottom: 20px; /* Spacing between form elements */
+  }
+  
+  .checkbox-container {
+    margin-bottom: 20px; /* Spacing for checkbox */
+  }
+  
+  .reset-button {
+    background-color: #E5F2FF; /* Matching the chat container background */
+    color: #333; /* Font color */
+    border: none; /* Removes the default border */
+    padding: 10px 20px; /* Padding for the button */
+    text-align: center; /* Centers the text/icon */
+    cursor: pointer; /* Changes the cursor to indicate it's clickable */
+    display: inline-flex; /* For aligning the icon with the text */
+    align-items: center; /* Aligns the icon vertically */
+    border-radius: 5px; /* Optional: rounds the corners of the button */
+  }
+  
+  .reset-button .fa-redo {
+    margin-right: 5px; /* Spacing between the icon and text */
+  }
+  
+  .message {
+    max-width: 70%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    word-wrap: break-word;
+  }
+  
+  .user {
+    background-color: #FFD8B5; /* Light orange for user messages */
+    align-self: flex-end;
+    text-align: right;
+    margin-left: auto; /* Ensures the bubble stays on the right */
+  }
+  
+  .assistant {
+    background-color: #FFAB73; /* Darker orange for assistant messages */
+    align-self: flex-start;
+    text-align: left;
+    margin-right: auto; /* Ensures the bubble stays on the left */
+  }
+  
+  #message-input {
+    flex-grow: 1;
+    margin-right: 10px; /* Space between input and send button */
+  }
+  

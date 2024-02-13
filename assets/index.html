@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Base Chat App</title>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.2/markdown-it.min.js"
+			integrity="sha512-ohlWmsCxOu0bph1om5eDL0jm/83eH09fvqLDhiEdiqfDeJbEvz4FSbeY0gLJSVJwQAp0laRhTXbUQG+ZUuifUQ=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+			integrity="sha512-rO+olRTkcf304DQBxSWxln8JXCzTHlKnIdnMUwYvQa9/Jd4cQaNkItIUj6Z4nvW1dqK0SKXLbn9h4KwZTNtAyw=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		/>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body>
+		<div class="chat-container">
+			<div id="chat-area">
+				<!-- Sample message history -->
+				<!--
+				<div class="message user">y tho?</div>
+				<div class="message assistant">y not?</div>
+			-->
+			</div>
+
+			<div class="input-area">
+				<form id="chat-form">
+					<input type="text" id="message-input" placeholder="Type a message..." />
+					<button type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+		<div class="settings-container">
+			<form id="settings-form">
+				<label for="model-select">Model Name:</label>
+				<select id="model-select">
+					<option value="@hf/thebloke/llama-2-13b-chat-awq">llama-2-13b-chat-awq</option>
+					<option value="@cf/meta/llama-2-7b-chat-int8">llama-2-7b-chat-int8</option>
+					<option value="@hf/thebloke/neural-chat-7b-v3-1-awq">neural-chat-7b-v3-1-awq</option>
+					<option value="@hf/thebloke/mistral-7b-instruct-v0.1-awq">mistral-7b-instruct-v0.1-awq</option>
+					<option value="@hf/thebloke/openhermes-2.5-mistral-7b-awq">openhermes-2.5-mistral-7b-awq</option>
+					<option value="@hf/thebloke/zephyr-7b-beta-awq">zephyr-7b-beta-awq</option>
+				</select>
+
+				<label for="system-message">System Message:</label>
+				<textarea id="system-message" rows="4"></textarea>
+
+				<div class="checkbox-container">
+					<input type="checkbox" id="rag-enabled" name="rag-enabled" />
+					<label for="rag-enabled">RAG Enabled</label>
+				</div>
+
+				<button type="button" onclick="resetChat()" class="reset-button"><i class="fa fa-redo"></i> Reset</button>
+			</form>
+		</div>
+
+		<script src="/script.js"></script>
+	</body>
+</html>

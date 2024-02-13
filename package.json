@@ -9,5 +9,10 @@
   },
   "devDependencies": {
     "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/ai": "^1.0.50",
+    "eventsource-parser": "^1.1.1",
+    "hono": "^4.0.0"
   }
 }
