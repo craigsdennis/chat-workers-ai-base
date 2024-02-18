@@ -10,8 +10,12 @@ let md;
 domReady(() => {
 	md = window.markdownit();
 	const chatSettings = retrieveChatSettings();
-	document.getElementById('model-select').value = chatSettings.model;
-	document.getElementById('system-message').value = chatSettings.systemMessage;
+	if (chatSettings.model !== undefined) {
+		document.getElementById('model-select').value = chatSettings.model;
+	}
+	if (chatSettings.systemMessage !== undefined) {
+		document.getElementById('system-message').value = chatSettings.systemMessage;
+	}
 	renderPreviousMessages();
 });
 
