@@ -23,3 +23,9 @@ npm run dev
 npm run deploy
 npx wrangler tail
 ```
+
+
+## TODO:
+
+- [ ] Make prettier
+- [ ] Extend to use RAG
