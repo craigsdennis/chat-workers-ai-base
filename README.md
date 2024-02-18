@@ -1,6 +1,6 @@
 # Vanilla JavaScript Chat Application using Cloudflare Workers AI
 
-A web based chat interface that allows for exploring Text Generation Models on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
+A web based chat interface that allows for exploring Text Generation Models on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/). Design is using [tailwind](https://tailwindcss.com/).
 
 This is, like all of us, a Work in Progress.
 

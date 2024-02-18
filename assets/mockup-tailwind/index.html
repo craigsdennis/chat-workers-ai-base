@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Chat Application</title>
+		<link rel="stylesheet" href="./output.css" />
+	</head>
+	<body class="font-sans">
+		<div class="flex h-screen bg-gray-200">
+			<!-- Chat container -->
+			<div class="flex-grow flex flex-col" style="max-width: calc(100% - 20rem)">
+				<!-- Messages container -->
+				<div class="flex-1 overflow-y-auto p-6 space-y-4 bg-white flex flex-col-reverse messages-container">
+					<!-- Sample messages -->
+					<div class="message-assistant">
+						<p>AI message here</p>
+						<p class="message-model">Model: GPT-3</p>
+					</div>
+					<div class="message-user">
+						<p>User message here</p>
+					</div>
+				</div>
+
+				<!-- Input area -->
+				<div class="px-6 py-2 bg-white shadow-up">
+					<!-- Input form -->
+					<form class="flex items-center">
+						<textarea
+							class="flex-grow m-2 p-2 border border-chat-border rounded shadow-sm placeholder-chat-placeholder"
+							placeholder="Type a message..."
+						></textarea>
+						<button class="m-2 px-4 py-2 bg-chat-button text-black rounded hover:bg-gray-300">Send</button>
+					</form>
+					<!-- Model name displayed below the input area -->
+					<div class="text-xs text-gray-500 mt-2">
+						<p>Model: GPT-3</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Chat settings panel -->
+			<div class="w-80 bg-chat-settings p-6 shadow-xl flex flex-col justify-between">
+				<!-- Chat settings content -->
+				<div>
+					<!-- Chat settings header and helper text -->
+					<div class="mb-4">
+						<h2 class="text-xl font-semibold">Chat Settings</h2>
+						<p class="text-sm text-chat-helpertext mt-1">Try out different models and configurations for your chat application</p>
+					</div>
+
+					<!-- Form for settings -->
+					<form>
+						<!-- Model selection -->
+						<div class="mb-4">
+							<label class="block text-black text-sm font-bold mb-2">Model</label>
+							<select
+								class="border border-chat-border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
+							>
+								<option selected>Choose a model...</option>
+								<!-- Model options go here -->
+							</select>
+						</div>
+						<!-- System message input with helper text -->
+						<div class="mb-4">
+							<label class="block text-black text-sm font-bold mb-2">System Message</label>
+							<p class="text-sm text-chat-helpertext mb-2">Guides the tone of the response</p>
+							<textarea
+								class="border border-chat-border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
+								placeholder="Enter system message..."
+							></textarea>
+						</div>
+						<!-- Apply changes button -->
+						<button class="w-full px-4 py-2 bg-chat-apply text-white rounded hover:bg-gray-800 focus:outline-none focus:shadow-outline">
+							Apply Changes
+						</button>
+					</form>
+				</div>
+
+				<!-- 'Powered by Cloudflare' note at the bottom -->
+				<div class="mt-4 text-center text-sm text-gray-500">
+					<p>Powered by Cloudflare</p>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
