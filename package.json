@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev"
+		"build": "npx tailwindcss -i ./assets/input.css -o ./assets/output.css",
+    "deploy": "npm run build && wrangler deploy",
+    "dev": "npm run build && wrangler dev",
+    "start": "npm run build && wrangler dev"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.1",

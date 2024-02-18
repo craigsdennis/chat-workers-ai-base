@@ -12,56 +12,93 @@
 		></script>
 		<link
 			rel="stylesheet"
-			href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-			integrity="sha512-rO+olRTkcf304DQBxSWxln8JXCzTHlKnIdnMUwYvQa9/Jd4cQaNkItIUj6Z4nvW1dqK0SKXLbn9h4KwZTNtAyw=="
+			href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+			integrity="sha512-0aPQyyeZrWj9sCA46UlmWgKOP0mUipLQ6OZXu8l4IcAmD2u31EPEy9VcIMvl7SoAaKe8bLXZhYoMaE/in+gcgA=="
 			crossorigin="anonymous"
 			referrerpolicy="no-referrer"
 		/>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-		<link rel="stylesheet" href="/styles.css" />
+		<link rel="stylesheet" href="/output.css" />
 	</head>
-	<body>
-		<div class="chat-container">
-			<div id="chat-area">
-				<!-- Sample message history -->
-				<!--
-				<div class="message user">y tho?</div>
-				<div class="message assistant">y not?</div>
-			-->
-			</div>
-
-			<div class="input-area">
-				<form id="chat-form">
-					<input type="text" id="message-input" placeholder="Type a message..." />
-					<button type="submit">Send</button>
-				</form>
-			</div>
-		</div>
-		<div class="settings-container">
-			<form id="settings-form">
-				<label for="model-select">Model Name:</label>
-				<select id="model-select">
-					<option value="@hf/thebloke/llama-2-13b-chat-awq">llama-2-13b-chat-awq</option>
-					<option value="@cf/meta/llama-2-7b-chat-int8">llama-2-7b-chat-int8</option>
-					<option value="@hf/thebloke/neural-chat-7b-v3-1-awq">neural-chat-7b-v3-1-awq</option>
-					<option value="@hf/thebloke/mistral-7b-instruct-v0.1-awq">mistral-7b-instruct-v0.1-awq</option>
-					<option value="@hf/thebloke/openhermes-2.5-mistral-7b-awq">openhermes-2.5-mistral-7b-awq</option>
-					<option value="@hf/thebloke/zephyr-7b-beta-awq">zephyr-7b-beta-awq</option>
-				</select>
-
-				<label for="system-message">System Message:</label>
-				<textarea id="system-message" rows="4"></textarea>
-
-				<div class="checkbox-container">
-					<input type="checkbox" id="rag-enabled" name="rag-enabled" />
-					<label for="rag-enabled">RAG Enabled</label>
+	<body class="font-sans">
+		<div class="flex h-screen bg-gray-200">
+			<!-- Chat container -->
+			<div class="flex-grow flex flex-col" style="max-width: calc(100% - 20rem)">
+				<!-- Chat History -->
+				<div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white flex flex-col-reverse messages-container">
 				</div>
 
-				<button type="button" onclick="resetChat()" class="reset-button"><i class="fa fa-redo"></i> Reset</button>
-			</form>
-		</div>
+				<!-- Input area -->
+				<div class="px-6 py-2 bg-white shadow-up">
+					<!-- Input form -->
+					<form class="flex items-center" id="chat-form">
+						<textarea
+							id="message-input"
+							class="flex-grow m-2 p-2 border border-chat-border rounded shadow-sm placeholder-chat-placeholder"
+							placeholder="Type a message..."
+						></textarea>
+						<button type="submit" class="m-2 px-4 py-2 bg-chat-button text-black rounded hover:bg-gray-300">Send</button>
+					</form>
+					<!-- Model name displayed below the input area -->
+					<div class="text-xs text-gray-500 mt-2">
+						<p class="model-display">-</p>
+					</div>
+				</div>
+			</div>
 
+			<!-- Chat settings panel -->
+			<div class="w-80 bg-chat-settings p-6 shadow-xl flex flex-col justify-between">
+				<!-- Chat settings content -->
+				<div>
+					<!-- Chat settings header and helper text -->
+					<div class="mb-4">
+						<h2 class="text-xl font-semibold">Chat Settings</h2>
+						<p class="text-sm text-chat-helpertext mt-1">Try out different models and configurations for your chat application</p>
+					</div>
+
+					<!-- Form for settings -->
+					<form>
+						<!-- Model selection -->
+						<div class="mb-4">
+							<label class="block text-black text-sm font-bold mb-2">Model</label>
+							<select
+								id="model-select"
+								class="border border-chat-border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
+							>
+								<option value="@hf/thebloke/llama-2-13b-chat-awq">llama-2-13b-chat-awq</option>
+								<option value="@cf/meta/llama-2-7b-chat-int8">llama-2-7b-chat-int8</option>
+								<option value="@hf/thebloke/neural-chat-7b-v3-1-awq">neural-chat-7b-v3-1-awq</option>
+								<option value="@hf/thebloke/mistral-7b-instruct-v0.1-awq">mistral-7b-instruct-v0.1-awq</option>
+								<option value="@hf/thebloke/openhermes-2.5-mistral-7b-awq">openhermes-2.5-mistral-7b-awq</option>
+								<option value="@hf/thebloke/zephyr-7b-beta-awq">zephyr-7b-beta-awq</option>
+							</select>
+						</div>
+						<!-- System message input with helper text -->
+						<div class="mb-4">
+							<label class="block text-black text-sm font-bold mb-2">System Message</label>
+							<p class="text-sm text-chat-helpertext mb-2">Guides the tone of the response</p>
+							<textarea
+								id="system-message"
+								class="border border-chat-border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
+								placeholder="Enter system message..."
+							></textarea>
+						</div>
+						<!-- Apply changes button -->
+						<button id="apply-chat-settings"
+							class="w-full px-4 py-2 bg-chat-apply text-white rounded hover:bg-gray-800 focus:outline-none focus:shadow-outline">
+							Apply Changes
+						</button>
+					</form>
+				</div>
+
+				<!-- 'Powered by Cloudflare' note at the bottom -->
+				<div class="mt-4 text-center text-sm text-gray-500 flex flex-col items-center">
+					<p class="mb-2">Demo powered by</p>
+					<img src="/cloudflare-logo.png" alt="Cloudflare Logo" class="h-6">
+				</div>
+			</div>
+		</div>
 		<script src="/script.js"></script>
 	</body>
 </html>
