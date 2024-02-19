@@ -9,10 +9,6 @@ const app = new Hono();
 
 app.get('/*', serveStatic({ root: './', manifest }));
 
-app.get('/', (c) => {
-	return c.json({ hi: 'mom' });
-});
-
 app.post('/api/chat', async (c) => {
 	const payload = await c.req.json();
 	const ai = new Ai(c.env.AI);
