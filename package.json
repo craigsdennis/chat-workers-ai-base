@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-		"build": "npx tailwindcss -i ./assets/input.css -o ./assets/output.css",
-    "deploy": "npm run build && wrangler deploy",
-    "dev": "npm run build && wrangler dev",
+    "build": "tailwindcss -i ./assets/input.css -o ./assets/output.css",
+    "deploy": "wrangler deploy",
+    "dev": "concurrently \"npm run build -- --watch\" \"wrangler dev\"",
     "start": "npm run build && wrangler dev"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "tailwindcss": "^3.4.1",
     "wrangler": "^3.0.0"
   },

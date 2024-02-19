@@ -579,6 +579,7 @@ video {
 }
 
 .message-user {
+  width: 100%;
   text-align: left;
   --tw-text-opacity: 1;
   color: rgb(0 0 0 / var(--tw-text-opacity));
@@ -586,7 +587,7 @@ video {
 
 .message-assistant {
   margin-bottom: 0.5rem;
-  max-width: 36rem;
+  width: 100%;
   border-radius: 0.5rem;
   --tw-bg-opacity: 1;
   background-color: rgb(247 248 250 / var(--tw-bg-opacity));
