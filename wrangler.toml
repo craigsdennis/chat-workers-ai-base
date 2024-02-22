@@ -1,10 +1,4 @@
-name = "base-chat"
-main = "src/index.js"
 compatibility_date = "2024-01-29"
-
-[site]
-bucket = "./assets"
 
 [ai]
 binding = "AI"
-

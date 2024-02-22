@@ -1,13 +1,9 @@
 import { Ai } from '@cloudflare/ai';
 import { Hono } from 'hono';
-import { serveStatic } from 'hono/cloudflare-workers';
 import { streamText } from 'hono/streaming';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
-import manifest from '__STATIC_CONTENT_MANIFEST';
 
 const app = new Hono();
-
-app.get('/*', serveStatic({ root: './', manifest }));
 
 app.post('/api/chat', async (c) => {
 	const payload = await c.req.json();
@@ -30,5 +26,7 @@ app.post('/api/chat', async (c) => {
 		}
 	});
 });
+
+app.get('/*', (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;
