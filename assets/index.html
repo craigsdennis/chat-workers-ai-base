@@ -26,9 +26,7 @@
 			<!-- Chat container -->
 			<div class="flex-grow flex flex-col" style="max-width: calc(100% - 20rem)">
 				<!-- Chat History -->
-				<div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white flex flex-col-reverse messages-container">
-				</div>
-
+				<div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4 bg-white flex flex-col-reverse messages-container"></div>
 
 				<!-- Input area -->
 				<div class="px-6 py-2 bg-white shadow-up">
@@ -67,13 +65,13 @@
 								id="model-select"
 								class="border border-chat-border rounded w-full py-2 px-3 text-black leading-tight focus:outline-none focus:shadow-outline"
 							>
-								<option value="@cf/tinyllama/tinyllama-1.1b-chat-v1.0"></option>
-								<option value="@hf/thebloke/llama-2-13b-chat-awq">llama-2-13b-chat-awq</option>
 								<option value="@cf/meta/llama-2-7b-chat-int8">llama-2-7b-chat-int8</option>
+								<option value="@hf/thebloke/llama-2-13b-chat-awq">llama-2-13b-chat-awq</option>
 								<option value="@hf/thebloke/mistral-7b-instruct-v0.1-awq">mistral-7b-instruct-v0.1-awq</option>
 								<option value="@hf/thebloke/neural-chat-7b-v3-1-awq">neural-chat-7b-v3-1-awq</option>
 								<option value="@hf/thebloke/openhermes-2.5-mistral-7b-awq">openhermes-2.5-mistral-7b-awq</option>
 								<option value="@cf/microsoft/phi-2">phi-2</option>
+								<option value="@cf/tinyllama/tinyllama-1.1b-chat-v1.0"></option>
 								<option value="@cf/qwen/qwen1.5-0.5b-chat">qwen1.5-0.5b-chat</option>
 								<option value="@cf/qwen/qwen1.5-14b-chat-awq">qwen1.5-14b-chat-awq</option>
 								<option value="@hf/thebloke/zephyr-7b-beta-awq">zephyr-7b-beta-awq</option>
@@ -90,8 +88,10 @@
 							></textarea>
 						</div>
 						<!-- Apply changes button -->
-						<button id="apply-chat-settings"
-							class="w-full px-4 py-2 bg-chat-apply text-white rounded hover:bg-gray-800 focus:outline-none focus:shadow-outline">
+						<button
+							id="apply-chat-settings"
+							class="w-full px-4 py-2 bg-chat-apply text-white rounded hover:bg-gray-800 focus:outline-none focus:shadow-outline"
+						>
 							Apply Changes
 						</button>
 					</form>
@@ -100,7 +100,9 @@
 				<!-- 'Powered by Cloudflare' note at the bottom -->
 				<div class="mt-4 text-center text-sm text-gray-500 flex items-center justify-center">
 					<span class="mr-2 pt-2">Powered by</span>
-					<a href="https://developers.cloudflare.com/workers-ai/" target="_blank"><img src="/cloudflare-logo.png" alt="Cloudflare Logo" class="h-6 inline"></a>
+					<a href="https://developers.cloudflare.com/workers-ai/" target="_blank"
+						><img src="/cloudflare-logo.png" alt="Cloudflare Logo" class="h-6 inline"
+					/></a>
 				</div>
 			</div>
 		</div>
