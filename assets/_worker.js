@@ -192,6 +192,24 @@ var tgTemplates = {
       post: " "
     }
   },
+  //
+  sqlcoder: {
+    system: {
+      flag: 2
+      /* ABSORB_ROLE */
+    },
+    user: {
+      flag: 2
+      /* ABSORB_ROLE */
+    },
+    assistant: {
+      flag: 2
+      /* ABSORB_ROLE */
+    },
+    global: {
+      template: "### Task\nGenerate a SQL query to answer [QUESTION]{user}[/QUESTION]\n\n### Database Schema\nThe query will run on a database with the following schema:\n{system}\n\n### Answer\nGiven the database schema, here is the SQL query that [QUESTION]{user}[/QUESTION]\n[SQL]"
+    }
+  },
   // ex: https://huggingface.co/TheBloke/LlamaGuard-7B-AWQ
   inst: {
     system: {
@@ -245,6 +263,23 @@ var tgTemplates = {
       post: "### Response:\n"
     }
   },
+  // https://huggingface.co/TheBloke/Falcon-7B-Instruct-GPTQ
+  falcon: {
+    system: {
+      post: "\n"
+    },
+    user: {
+      pre: "User: ",
+      post: "\n"
+    },
+    assistant: {
+      pre: "Assistant: ",
+      post: "\n"
+    },
+    global: {
+      post: "Assistant: \n"
+    }
+  },
   // https://huggingface.co/TheBloke/openchat_3.5-AWQ#prompt-template-openchat
   openchat: {
     system: {
@@ -263,6 +298,44 @@ var tgTemplates = {
     },
     global: {
       post: "GPT4 Assistant:"
+    }
+  },
+  // https://huggingface.co/openchat/openchat#conversation-template
+  "openchat-alt": {
+    system: {
+      flag: 2
+      /* ABSORB_ROLE */
+    },
+    user: {
+      pre: "<s>Human: ",
+      post: "<|end_of_turn|>",
+      flag: 3
+      /* APPEND_LAST_SYSTEM */
+    },
+    assistant: {
+      pre: "Assistant: ",
+      post: "<|end_of_turn|>"
+    },
+    global: {
+      post: "Assistant: "
+    }
+  },
+  // https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+  tinyllama: {
+    system: {
+      pre: "<|system|>\n",
+      post: "</s>\n"
+    },
+    user: {
+      pre: "<|user|>\n",
+      post: "</s>\n"
+    },
+    assistant: {
+      pre: "<|assistant|>\n",
+      post: "</s>\n"
+    },
+    global: {
+      post: "<|assistant|>\n"
     }
   },
   // https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-AWQ#prompt-template-chatml
@@ -357,7 +430,14 @@ var tgTemplates = {
 };
 var generateTgTemplate = (messages, template) => {
   let prompt = "";
-  const state = { lastSystem: false, systemCount: 0, userCount: 0, assistantCount: 0 };
+  const state = {
+    lastSystem: false,
+    systemCount: 0,
+    lastUser: false,
+    userCount: 0,
+    lastAssistant: false,
+    assistantCount: 0
+  };
   for (const message of messages) {
     switch (message.role) {
       case "system":
@@ -367,10 +447,12 @@ var generateTgTemplate = (messages, template) => {
         break;
       case "user":
         state.userCount++;
+        state.lastUser = message.content;
         prompt += applyRole(template, message.role, message.content, state);
         break;
       case "assistant":
         state.assistantCount++;
+        state.lastAssistant = message.content;
         prompt += applyRole(template, message.role, message.content, state);
         break;
     }
@@ -390,6 +472,9 @@ var applyRole = (template, role, content, state) => {
       return "";
     if (tgTemplates[template][role].flag == 3 && state.lastSystem && state.userCount == 1) {
       content = `${state.lastSystem}${[":", ".", "!", "?"].indexOf(state.lastSystem.slice(-1)) == -1 ? ":" : ""} ${content}`;
+    }
+    if (tgTemplates[template][role].template) {
+      return tgTemplates[template][role].template.replaceAll("{user}", state.lastUser).replaceAll("{system}", state.lastSystem).replaceAll("{assistant}", state.lastAssistant);
     }
     return applyTag(template, role, "pre", state) + (content || "") + applyTag(template, role, "post", state);
   }
@@ -515,31 +600,39 @@ var AiTextGeneration = class {
     } else {
       prompt = generateTgTemplate(this.inputs.messages, this.modelSettings.preProcessingArgs.promptTemplate);
     }
-    this.preProcessedInputs = prompt;
+    this.preProcessedInputs = {
+      prompt,
+      max_tokens: this.inputs.max_tokens,
+      stream: this.inputs.stream ? true : false
+    };
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("str", [this.preProcessedInputs], {
-        shape: [1],
-        name: "INPUT_0"
-      }),
-      new Tensor("uint32", [this.inputs.max_tokens], {
-        // sequence length
-        shape: [1],
-        name: "INPUT_1"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("str", [preProcessedInputs.prompt], {
+          shape: [1],
+          name: "INPUT_0"
+        }),
+        new Tensor("uint32", [preProcessedInputs.max_tokens], {
+          // sequence length
+          shape: [1],
+          name: "INPUT_1"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     if (this.modelSettings.postProcessingFunc) {
-      this.postProcessedOutputs = { response: this.modelSettings.postProcessingFunc(response) };
+      this.postProcessedOutputs = { response: this.modelSettings.postProcessingFunc(response, this.preProcessedInputs) };
     } else {
       this.postProcessedOutputs = { response: response.name.value[0] };
     }
   }
-  postProcessingStream(response) {
+  postProcessingStream(response, inclen) {
     if (this.modelSettings.postProcessingFuncStream) {
-      return { response: this.modelSettings.postProcessingFuncStream(response) };
+      return { response: this.modelSettings.postProcessingFuncStream(response, this.preProcessedInputs, inclen) };
     } else {
       return { response: response.name.value[0] };
     }
@@ -585,13 +678,17 @@ var AiTextClassification = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("str", [this.preProcessedInputs.text], {
-        shape: [1],
-        name: "input_text"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("str", [preProcessedInputs.text], {
+          shape: [1],
+          name: "input_text"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     this.postProcessedOutputs = [
@@ -661,23 +758,27 @@ var AiTextEmbeddings = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor(
-        "str",
-        Array.isArray(this.preProcessedInputs.text) ? this.preProcessedInputs.text : [this.preProcessedInputs.text],
-        {
-          shape: [
-            Array.isArray(this.preProcessedInputs.text) ? this.preProcessedInputs.text.length : [this.preProcessedInputs.text].length
-          ],
-          name: "input_text"
-        }
-      )
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor(
+          "str",
+          Array.isArray(preProcessedInputs.text) ? preProcessedInputs.text : [preProcessedInputs.text],
+          {
+            shape: [
+              Array.isArray(preProcessedInputs.text) ? preProcessedInputs.text.length : [preProcessedInputs.text].length
+            ],
+            name: "input_text"
+          }
+        )
+      ];
+    }
   }
   postProcessing(response) {
     if (this.modelSettings.postProcessingFunc) {
-      this.postProcessedOutputs = this.modelSettings.postProcessingFunc(response);
+      this.postProcessedOutputs = this.modelSettings.postProcessingFunc(response, this.preProcessedInputs);
     } else {
       this.postProcessedOutputs = {
         shape: response.embeddings.shape,
@@ -727,21 +828,25 @@ var AiTranslation = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("str", [this.preProcessedInputs.text], {
-        shape: [1, 1],
-        name: "text"
-      }),
-      new Tensor("str", [this.preProcessedInputs.source_lang || "en"], {
-        shape: [1, 1],
-        name: "source_lang"
-      }),
-      new Tensor("str", [this.preProcessedInputs.target_lang], {
-        shape: [1, 1],
-        name: "target_lang"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("str", [preProcessedInputs.text], {
+          shape: [1, 1],
+          name: "text"
+        }),
+        new Tensor("str", [preProcessedInputs.source_lang || "en"], {
+          shape: [1, 1],
+          name: "source_lang"
+        }),
+        new Tensor("str", [preProcessedInputs.target_lang], {
+          shape: [1, 1],
+          name: "target_lang"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     this.postProcessedOutputs = { translated_text: response.name.value[0] };
@@ -809,17 +914,21 @@ var AiSpeechRecognition = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("uint8", this.preProcessedInputs.audio, {
-        shape: [1, this.preProcessedInputs.audio.length],
-        name: "audio"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("uint8", preProcessedInputs.audio, {
+          shape: [1, preProcessedInputs.audio.length],
+          name: "audio"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     if (this.modelSettings.postProcessingFunc) {
-      this.postProcessedOutputs = this.modelSettings.postProcessingFunc(response);
+      this.postProcessedOutputs = this.modelSettings.postProcessingFunc(response, this.preProcessedInputs);
     } else {
       this.postProcessedOutputs = { text: response.name.value[0].trim() };
     }
@@ -1874,13 +1983,17 @@ var AiImageClassification = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("uint8", this.preProcessedInputs.image, {
-        shape: [1, this.preProcessedInputs.image.length],
-        name: "input"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("uint8", preProcessedInputs.image, {
+          shape: [1, preProcessedInputs.image.length],
+          name: "input"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     const labels = [];
@@ -1891,6 +2004,90 @@ var AiImageClassification = class {
       return b.score - a.score;
     });
     this.postProcessedOutputs = labels.slice(0, 5);
+  }
+};
+var AiImageToText = class {
+  modelSettings;
+  inputs;
+  preProcessedInputs;
+  postProcessedOutputs;
+  tensors;
+  // run ./scripts/gen-validators.ts if you change the schema
+  schema = {
+    input: {
+      oneOf: [
+        { type: "string", format: "binary" },
+        {
+          type: "object",
+          properties: {
+            image: {
+              type: "array",
+              items: {
+                type: "number"
+              }
+            },
+            prompt: {
+              type: "string"
+            },
+            max_tokens: {
+              type: "integer",
+              default: 512
+            }
+          }
+        }
+      ]
+    },
+    output: {
+      type: "object",
+      contentType: "application/json",
+      properties: {
+        description: {
+          type: "string"
+        }
+      }
+    }
+  };
+  constructor(inputs, modelSettings2) {
+    this.inputs = inputs;
+    this.modelSettings = modelSettings2;
+  }
+  preProcessing() {
+    this.preProcessedInputs = this.inputs;
+  }
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor(
+          "int32",
+          [
+            preProcessedInputs.max_tokens || this.schema.input.oneOf.filter((f) => f.type == "object")[0].properties.max_tokens.default
+          ],
+          {
+            shape: [1],
+            name: "max_tokens"
+          }
+        ),
+        new Tensor("str", [preProcessedInputs.prompt], {
+          shape: [1],
+          name: "prompt"
+        }),
+        new Tensor("uint8", preProcessedInputs.image, {
+          shape: [1, preProcessedInputs.image.length],
+          name: "image"
+        })
+      ];
+    }
+  }
+  postProcessing(response) {
+    if (this.modelSettings.postProcessingFunc) {
+      this.postProcessedOutputs = {
+        description: this.modelSettings.postProcessingFunc(response, this.preProcessedInputs)
+      };
+    } else {
+      this.postProcessedOutputs = { description: response.name.value[0] };
+    }
   }
 };
 var AiObjectDetection = class {
@@ -1957,13 +2154,17 @@ var AiObjectDetection = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("uint8", this.preProcessedInputs.image, {
-        shape: [1, this.preProcessedInputs.image.length],
-        name: "input"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("uint8", preProcessedInputs.image, {
+          shape: [1, preProcessedInputs.image.length],
+          name: "input"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     const scores = response.scores.value[0].map((score, i) => {
@@ -1997,10 +2198,50 @@ var AiTextToImage = class {
         prompt: {
           type: "string"
         },
+        image: {
+          oneOf: [
+            { type: "string", format: "binary" },
+            {
+              type: "object",
+              properties: {
+                image: {
+                  type: "array",
+                  items: {
+                    type: "number"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        mask: {
+          oneOf: [
+            { type: "string", format: "binary" },
+            {
+              type: "object",
+              properties: {
+                mask: {
+                  type: "array",
+                  items: {
+                    type: "number"
+                  }
+                }
+              }
+            }
+          ]
+        },
         num_steps: {
           type: "integer",
           default: 20,
           maximum: 20
+        },
+        strength: {
+          type: "number",
+          default: 1
+        },
+        guidance: {
+          type: "number",
+          default: 7.5
         }
       },
       required: ["prompt"]
@@ -2018,23 +2259,147 @@ var AiTextToImage = class {
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("str", [this.preProcessedInputs.prompt], {
-        shape: [1],
-        name: "input_text"
-      }),
-      new Tensor("int32", [this.preProcessedInputs.num_steps], {
-        shape: [1],
-        name: "num_steps"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      let tokens = [
+        new Tensor("str", [preProcessedInputs.prompt], {
+          shape: [1],
+          name: "input_text"
+        }),
+        new Tensor("int32", [preProcessedInputs.num_steps || this.schema.input.properties.num_steps.default], {
+          shape: [1],
+          name: "num_steps"
+        })
+      ];
+      if (preProcessedInputs.image) {
+        tokens = [
+          ...tokens,
+          ...[
+            new Tensor("str", [""], {
+              shape: [1],
+              name: "negative_prompt"
+            }),
+            new Tensor(
+              "float32",
+              [preProcessedInputs.strength || this.schema.input.properties.strength.default],
+              {
+                shape: [1],
+                name: "strength"
+              }
+            ),
+            new Tensor(
+              "float32",
+              [preProcessedInputs.guidance || this.schema.input.properties.guidance.default],
+              {
+                shape: [1],
+                name: "guidance"
+              }
+            ),
+            new Tensor("uint8", preProcessedInputs.image, {
+              shape: [1, preProcessedInputs.image.length],
+              name: "image"
+            })
+          ]
+        ];
+      }
+      if (preProcessedInputs.mask) {
+        tokens = [
+          ...tokens,
+          ...[
+            new Tensor("uint8", preProcessedInputs.mask, {
+              shape: [1, preProcessedInputs.mask.length],
+              name: "mask_image"
+            })
+          ]
+        ];
+      }
+      return tokens;
+    }
+  }
+  OldgenerateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      if (preProcessedInputs.image && preProcessedInputs.mask) {
+        return [
+          new Tensor("str", [preProcessedInputs.prompt], {
+            shape: [1],
+            name: "input_text"
+          }),
+          new Tensor("str", [""], {
+            shape: [1],
+            name: "negative_prompt"
+          }),
+          new Tensor("int32", [preProcessedInputs.num_steps || 20], {
+            shape: [1],
+            name: "num_steps"
+          }),
+          new Tensor("float32", [preProcessedInputs.strength || 1], {
+            shape: [1],
+            name: "strength"
+          }),
+          new Tensor("float32", [preProcessedInputs.guidance || 7.5], {
+            shape: [1],
+            name: "guidance"
+          }),
+          new Tensor("uint8", preProcessedInputs.image, {
+            shape: [1, preProcessedInputs.image.length],
+            name: "image"
+          }),
+          new Tensor("uint8", preProcessedInputs.mask, {
+            shape: [1, preProcessedInputs.mask.length],
+            name: "mask_image"
+          })
+        ];
+      } else if (preProcessedInputs.image) {
+        return [
+          new Tensor("str", [preProcessedInputs.prompt], {
+            shape: [1],
+            name: "input_text"
+          }),
+          new Tensor("str", [""], {
+            shape: [1],
+            name: "negative_prompt"
+          }),
+          new Tensor("float32", [preProcessedInputs.strength || 1], {
+            shape: [1],
+            name: "strength"
+          }),
+          new Tensor("float32", [preProcessedInputs.guidance || 7.5], {
+            shape: [1],
+            name: "guidance"
+          }),
+          new Tensor("uint8", preProcessedInputs.image, {
+            shape: [1, preProcessedInputs.image.length],
+            name: "image"
+          }),
+          new Tensor("int32", [preProcessedInputs.num_steps || 20], {
+            shape: [1],
+            name: "num_steps"
+          })
+        ];
+      } else {
+        return [
+          new Tensor("str", [preProcessedInputs.prompt], {
+            shape: [1],
+            name: "input_text"
+          }),
+          new Tensor("int32", [preProcessedInputs.num_steps || 20], {
+            shape: [1],
+            name: "num_steps"
+          })
+        ];
+      }
+    }
   }
   postProcessing(response) {
     this.postProcessedOutputs = new Uint8Array(response.output_image.value);
   }
 };
 var AiSentenceSimilarity = class {
+  modelSettings;
   inputs;
   preProcessedInputs;
   postProcessedOutputs;
@@ -2064,38 +2429,179 @@ var AiSentenceSimilarity = class {
       }
     }
   };
-  constructor(inputs) {
+  constructor(inputs, modelSettings2) {
     this.inputs = inputs;
+    this.modelSettings = modelSettings2;
   }
   preProcessing() {
     this.preProcessedInputs = this.inputs;
   }
-  generateTensors() {
-    this.tensors = [
-      new Tensor("str", [this.preProcessedInputs.source], {
-        shape: [1],
-        name: "source_sentence"
-      }),
-      new Tensor("str", this.preProcessedInputs.sentences, {
-        shape: [this.preProcessedInputs.sentences.length],
-        name: "sentences"
-      })
-    ];
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("str", [preProcessedInputs.source], {
+          shape: [1],
+          name: "source_sentence"
+        }),
+        new Tensor("str", preProcessedInputs.sentences, {
+          shape: [preProcessedInputs.sentences.length],
+          name: "sentences"
+        })
+      ];
+    }
   }
   postProcessing(response) {
     this.postProcessedOutputs = response.scores.value;
   }
 };
+var AiSummarization = class {
+  modelSettings;
+  inputs;
+  preProcessedInputs;
+  postProcessedOutputs;
+  tensors;
+  // run ./scripts/gen-validators.ts if you change the schema
+  schema = {
+    input: {
+      type: "object",
+      properties: {
+        input_text: {
+          type: "string"
+        },
+        max_length: {
+          type: "integer",
+          default: 1024
+        }
+      },
+      required: ["input_text"]
+    },
+    output: {
+      type: "object",
+      contentType: "application/json",
+      properties: {
+        summary: {
+          type: "string"
+        }
+      }
+    }
+  };
+  constructor(inputs, modelSettings2) {
+    this.inputs = inputs;
+    this.modelSettings = modelSettings2;
+  }
+  preProcessing() {
+    this.preProcessedInputs = this.inputs;
+  }
+  generateTensors(preProcessedInputs) {
+    if (this.modelSettings.generateTensorsFunc) {
+      return this.modelSettings.generateTensorsFunc(preProcessedInputs);
+    } else {
+      return [
+        new Tensor("int32", [preProcessedInputs.max_length || this.schema.input.properties.max_length.default], {
+          // sequence length
+          shape: [1],
+          name: "max_length"
+        }),
+        new Tensor("str", [preProcessedInputs.input_text], {
+          shape: [1],
+          name: "input_text"
+        })
+      ];
+    }
+  }
+  postProcessing(response) {
+    this.postProcessedOutputs = { summary: response.name.value[0] };
+  }
+};
 var chatDefaultContext = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.";
 var codeDefaultContext = "Write code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using   ```:";
+var vLLMGenerateTensors = (preProcessedInputs) => {
+  const tensors = [
+    new Tensor("str", [preProcessedInputs.prompt], {
+      shape: [1],
+      name: "text_input"
+    }),
+    new Tensor("str", [`{"max_tokens": ${preProcessedInputs.max_tokens}}`], {
+      // sequence length
+      shape: [1],
+      name: "sampling_parameters"
+    })
+  ];
+  if (preProcessedInputs.stream) {
+    tensors.push(
+      new Tensor("bool", true, {
+        name: "stream"
+      })
+    );
+  }
+  return tensors;
+};
+var tgiPostProc = (response, ignoreTokens) => {
+  let r = response["generated_text"].value[0];
+  if (ignoreTokens) {
+    for (var i in ignoreTokens)
+      r = r.replace(ignoreTokens[i], "");
+  }
+  return r;
+};
+var defaultvLLM = {
+  type: "vllm",
+  inputsDefaultsStream: {
+    max_tokens: 512
+  },
+  inputsDefaults: {
+    max_tokens: 512
+  },
+  preProcessingArgs: {
+    promptTemplate: "bare",
+    defaultContext: ""
+  },
+  generateTensorsFunc: (preProcessedInputs) => vLLMGenerateTensors(preProcessedInputs),
+  postProcessingFunc: (r, inputs) => r["name"].value[0].slice(inputs.prompt.length),
+  postProcessingFuncStream: (r, inputs, inclen) => {
+    let token = r["name"].value[0];
+    let len = inclen(token.length);
+    let lastLen = len - token.length;
+    if (len < inputs.prompt.length)
+      return;
+    if (lastLen >= inputs.prompt.length)
+      return token;
+    return token.slice(inputs.prompt.length - lastLen);
+  }
+};
+var defaultTGI = (promptTemplate, defaultContext, ignoreTokens) => {
+  return {
+    type: "tgi",
+    inputsDefaultsStream: {
+      max_tokens: 512
+    },
+    inputsDefaults: {
+      max_tokens: 256
+    },
+    preProcessingArgs: {
+      promptTemplate,
+      defaultContext
+    },
+    postProcessingFunc: (r, inputs) => tgiPostProc(r, ignoreTokens),
+    postProcessingFuncStream: (r, inputs, len) => tgiPostProc(r, ignoreTokens)
+  };
+};
 var modelMappings = {
   "text-classification": {
-    models: ["@cf/huggingface/distilbert-sst-2-int8"],
+    models: ["@cf/huggingface/distilbert-sst-2-int8", "@cf/jpmorganchase/roberta-spam"],
     class: AiTextClassification,
     id: "19606750-23ed-4371-aab2-c20349b53a60"
   },
   "text-to-image": {
-    models: ["@cf/stabilityai/stable-diffusion-xl-base-1.0", "@cf/runwayml/stable-diffusion-v1-5"],
+    models: [
+      "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+      "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+      "@cf/runwayml/stable-diffusion-v1-5-img2img",
+      "@cf/lykon/dreamshaper-8-lcm",
+      "@cf/bytedance/stable-diffusion-xl-lightning"
+    ],
     class: AiTextToImage,
     id: "3d6e1f35-341b-4915-a6c8-9a7142a9033a"
   },
@@ -2145,7 +2651,20 @@ var modelMappings = {
       "@hf/thebloke/neural-chat-7b-v3-1-awq",
       "@hf/thebloke/llamaguard-7b-awq",
       "@hf/thebloke/deepseek-coder-6.7b-base-awq",
-      "@hf/thebloke/deepseek-coder-6.7b-instruct-awq"
+      "@hf/thebloke/deepseek-coder-6.7b-instruct-awq",
+      "@cf/deepseek-ai/deepseek-math-7b-base",
+      "@cf/deepseek-ai/deepseek-math-7b-instruct",
+      "@cf/defog/sqlcoder-7b-2",
+      "@cf/openchat/openchat-3.5-0106",
+      "@cf/tiiuae/falcon-7b-instruct",
+      "@cf/thebloke/discolm-german-7b-v1-awq",
+      "@cf/qwen/qwen1.5-0.5b-chat",
+      "@cf/qwen/qwen1.5-1.8b-chat",
+      "@cf/qwen/qwen1.5-7b-chat-awq",
+      "@cf/qwen/qwen1.5-14b-chat-awq",
+      "@cf/tinyllama/tinyllama-1.1b-chat-v1.0",
+      "@cf/microsoft/phi-2",
+      "@cf/thebloke/yarn-mistral-7b-64k-awq"
     ],
     class: AiTextGeneration,
     id: "c329a1f9-323d-4e91-b2aa-582dd4188d34"
@@ -2154,198 +2673,95 @@ var modelMappings = {
     models: ["@cf/meta/m2m100-1.2b"],
     class: AiTranslation,
     id: "f57d07cb-9087-487a-bbbf-bc3e17fecc4b"
+  },
+  summarization: {
+    models: ["@cf/facebook/bart-large-cnn"],
+    class: AiSummarization,
+    id: "6f4e65d8-da0f-40d2-9aa4-db582a5a04fd"
+  },
+  "image-to-text": {
+    models: ["@cf/unum/uform-gen2-qwen-500m"],
+    class: AiImageToText,
+    id: "882a91d1-c331-4eec-bdad-834c919942a8"
   }
-};
-var tgiPostProc = (response, ignoreTokens) => {
-  let r = response["generated_text"].value[0];
-  if (ignoreTokens) {
-    for (var i in ignoreTokens)
-      r = r.replace(ignoreTokens[i], "");
-  }
-  return r;
 };
 var modelSettings = {
+  // TGIs
+  "@hf/thebloke/deepseek-coder-6.7b-instruct-awq": defaultTGI("deepseek", codeDefaultContext, ["<|EOT|>"]),
+  "@hf/thebloke/deepseek-coder-6.7b-base-awq": defaultTGI("bare", codeDefaultContext),
+  "@hf/thebloke/llamaguard-7b-awq": defaultTGI("inst", chatDefaultContext),
+  "@hf/thebloke/openchat_3.5-awq": { ...defaultTGI("openchat", chatDefaultContext), experimental: true },
+  "@hf/thebloke/openhermes-2.5-mistral-7b-awq": defaultTGI("chatml", chatDefaultContext, ["<|im_end|>"]),
+  "@hf/thebloke/starling-lm-7b-alpha-awq": {
+    ...defaultTGI("openchat", chatDefaultContext, ["<|end_of_turn|>"]),
+    experimental: true
+  },
+  "@hf/thebloke/orca-2-13b-awq": { ...defaultTGI("chatml", chatDefaultContext), experimental: true },
+  "@hf/thebloke/neural-chat-7b-v3-1-awq": defaultTGI("orca-hashes", chatDefaultContext),
+  "@hf/thebloke/llama-2-13b-chat-awq": defaultTGI("llama2", chatDefaultContext),
+  "@hf/thebloke/zephyr-7b-beta-awq": defaultTGI("zephyr", chatDefaultContext),
+  "@hf/thebloke/mistral-7b-instruct-v0.1-awq": defaultTGI("mistral-instruct", chatDefaultContext),
+  "@hf/thebloke/codellama-7b-instruct-awq": defaultTGI("llama2", codeDefaultContext),
+  // vLLMs
+  "@cf/thebloke/yarn-mistral-7b-64k-awq": { ...defaultvLLM, ...{ experimental: true } },
+  "@cf/microsoft/phi-2": defaultvLLM,
+  "@cf/defog/sqlcoder-7b-2": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "sqlcoder", defaultContext: chatDefaultContext } }
+  },
+  "@cf/deepseek-ai/deepseek-math-7b-base": defaultvLLM,
+  "@cf/deepseek-ai/deepseek-math-7b-instruct": defaultvLLM,
+  "@cf/tiiuae/falcon-7b-instruct": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "falcon", defaultContext: chatDefaultContext } }
+  },
+  "@cf/thebloke/discolm-german-7b-v1-awq": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "chatml", defaultContext: chatDefaultContext } }
+  },
+  "@cf/qwen/qwen1.5-14b-chat-awq": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "chatml", defaultContext: chatDefaultContext } }
+  },
+  "@cf/qwen/qwen1.5-0.5b-chat": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "chatml", defaultContext: chatDefaultContext } }
+  },
+  "@cf/qwen/qwen1.5-1.8b-chat": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "chatml", defaultContext: chatDefaultContext } }
+  },
+  "@cf/qwen/qwen1.5-7b-chat-awq": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "chatml", defaultContext: chatDefaultContext } }
+  },
+  "@cf/tinyllama/tinyllama-1.1b-chat-v1.0": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "tinyllama", defaultContext: chatDefaultContext } }
+  },
+  "@cf/openchat/openchat-3.5-0106": {
+    ...defaultvLLM,
+    ...{ preProcessingArgs: { promptTemplate: "openchat-alt", defaultContext: chatDefaultContext } }
+  },
+  // Others
+  "@cf/unum/uform-gen2-qwen-500m": {
+    postProcessingFunc: (response, inputs) => {
+      return response.name.value[0].replace("<|im_end|>", "");
+    }
+  },
+  "@cf/jpmorganchase/roberta-spam": {
+    experimental: true
+  },
   "@hf/sentence-transformers/all-minilm-l6-v2": {
     experimental: true
   },
   "@hf/baai/bge-base-en-v1.5": {
-    postProcessingFunc: (r) => {
+    postProcessingFunc: (r, inputs) => {
       return {
         shape: r.data.shape,
         data: r.data.value
       };
     }
-  },
-  "@hf/thebloke/deepseek-coder-6.7b-instruct-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "deepseek",
-      defaultContext: codeDefaultContext
-    },
-    postProcessingFunc: (r) => tgiPostProc(r, ["<|EOT|>"]),
-    postProcessingFuncStream: (r) => tgiPostProc(r, ["<|EOT|>"])
-  },
-  "@hf/thebloke/deepseek-coder-6.7b-base-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "bare",
-      defaultContext: codeDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/llamaguard-7b-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "inst",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/openchat_3.5-awq": {
-    experimental: true,
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "openchat",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/openhermes-2.5-mistral-7b-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "chatml",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: (r) => tgiPostProc(r, ["<|im_end|>"]),
-    postProcessingFuncStream: (r) => tgiPostProc(r, ["<|im_end|>"])
-  },
-  "@hf/thebloke/starling-lm-7b-alpha-awq": {
-    experimental: true,
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "openchat",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: (r) => tgiPostProc(r, ["<|end_of_turn|>"]),
-    postProcessingFuncStream: (r) => tgiPostProc(r, ["<|end_of_turn|>"])
-  },
-  "@hf/thebloke/orca-2-13b-awq": {
-    experimental: true,
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "chatml",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/neural-chat-7b-v3-1-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "orca-hashes",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/llama-2-13b-chat-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 512
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "llama2",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/zephyr-7b-beta-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 596
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "zephyr",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/mistral-7b-instruct-v0.1-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 596
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "mistral-instruct",
-      defaultContext: chatDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
-  },
-  "@hf/thebloke/codellama-7b-instruct-awq": {
-    inputsDefaultsStream: {
-      max_tokens: 596
-    },
-    inputsDefaults: {
-      max_tokens: 256
-    },
-    preProcessingArgs: {
-      promptTemplate: "llama2",
-      defaultContext: codeDefaultContext
-    },
-    postProcessingFunc: tgiPostProc,
-    postProcessingFuncStream: tgiPostProc
   },
   "@cf/meta/llama-2-7b-chat-fp16": {
     inputsDefaultsStream: {
@@ -2372,7 +2788,7 @@ var modelSettings = {
     }
   },
   "@cf/openai/whisper": {
-    postProcessingFunc: (response) => {
+    postProcessingFunc: (response, inputs) => {
       if (response["word_count"]) {
         return {
           text: response["name"].value.join("").trim(),
@@ -2452,6 +2868,9 @@ var getModelSettings = (model, key) => {
     }
   }
   return false;
+};
+var setModelSettings = (model, settings) => {
+  modelSettings[model] = settings;
 };
 var EventSourceParserStream = class extends TransformStream {
   constructor() {
@@ -2620,6 +3039,7 @@ var getEventStream = (body) => {
 };
 var readStream = (body, debug, ctx, tensorData, postProcessing) => {
   const { readable, reader, writer, write } = getEventStream(body);
+  let len = 0;
   const waitUntil = ctx && ctx.waitUntil ? (f) => ctx.waitUntil(f()) : (f) => f();
   waitUntil(async () => {
     try {
@@ -2629,12 +3049,19 @@ var readStream = (body, debug, ctx, tensorData, postProcessing) => {
           await write("data: [DONE]\n\n");
           break;
         }
-        debugLog(debug, "stream response", value);
+        debugLog(debug, `stream response (len: ${len})`, value);
         if (tensorData) {
           const output = tensorByName(value.result);
-          await write(`data: ${JSON.stringify(postProcessing ? postProcessing(output) : output)}
+          await write(
+            `data: ${JSON.stringify(
+              postProcessing ? postProcessing(output, (l) => {
+                len += l;
+                return len;
+              }) : output
+            )}
 
-`);
+`
+          );
         } else {
           await write(`data: ${JSON.stringify(value)}
 
@@ -2643,7 +3070,9 @@ var readStream = (body, debug, ctx, tensorData, postProcessing) => {
       }
     } catch (e) {
       console.error(e.stack);
-      await write("an unknown error occurred while streaming");
+      await write(`$error: ${e.stack.toString()}
+
+`);
     }
     await writer.close();
   });
@@ -2651,22 +3080,28 @@ var readStream = (body, debug, ctx, tensorData, postProcessing) => {
 };
 var InferenceUpstreamError = class extends Error {
   httpCode;
-  constructor(message, httpCode) {
+  requestId;
+  constructor(message, httpCode, requestId) {
     super(message);
     this.name = "InferenceUpstreamError";
     this.httpCode = httpCode;
+    this.requestId = requestId;
   }
 };
 var InferenceSession = class {
   binding;
   model;
   options;
+  lastRequestId;
   constructor(binding, model, options = {}) {
     this.binding = binding;
     this.model = model;
     this.options = options;
+    this.lastRequestId = "";
   }
   async run(inputs, options) {
+    const reqId = crypto.randomUUID();
+    this.lastRequestId = reqId;
     const jsonInputs = parseInputs(inputs);
     const inferRequest = {
       input: jsonInputs,
@@ -2677,7 +3112,6 @@ var InferenceSession = class {
     }
     const body = JSON.stringify(inferRequest);
     const compressedReadableStream = new Response(body).body.pipeThrough(new CompressionStream("gzip"));
-    const reqId = crypto.randomUUID();
     const fetchOptions = {
       method: "POST",
       body: compressedReadableStream,
@@ -2685,13 +3119,13 @@ var InferenceSession = class {
         ...this.options?.extraHeaders || {},
         "content-encoding": "gzip",
         "cf-ai-req-id": reqId,
-        "cf-consn-sdk-version": "1.0.50",
+        "cf-consn-sdk-version": "1.0.53",
         "cf-consn-model-id": `${this.options.prefix ? `${this.options.prefix}:` : ""}${this.model}`
       }
     };
     const res = this.options.apiEndpoint ? await fetch(this.options.apiEndpoint, fetchOptions) : await this.binding.fetch("http://workers-binding.ai/run", fetchOptions);
     if (!res.ok) {
-      throw new InferenceUpstreamError(await res.text(), res.status);
+      throw new InferenceUpstreamError(await res.text(), res.status, reqId);
     }
     if (!options?.stream) {
       const { result } = await res.json();
@@ -2705,12 +3139,25 @@ var Ai = class {
   binding;
   options;
   task;
+  lastRequestId;
   constructor(binding, options = {}) {
-    this.binding = binding;
-    this.options = options;
+    if (binding) {
+      this.binding = binding;
+      this.options = options;
+      this.lastRequestId = "";
+    } else {
+      throw new Error("Ai binding is undefined. Please provide a valid binding.");
+    }
   }
   addModel(task, model, settings) {
     addModel(task, model, settings);
+  }
+  overrideSettings(model, values) {
+    let settings = getModelSettings(model);
+    if (!settings)
+      settings = {};
+    settings = { ...settings, ...values };
+    setModelSettings(model, settings);
   }
   async run(model, inputs) {
     const tasks = Object.keys(modelMappings);
@@ -2748,7 +3195,7 @@ var Ai = class {
         } else {
           this.task.preProcessing();
           debugLog(this.options.debug, "pre-processed inputs", this.task.preProcessedInputs);
-          this.task.generateTensors();
+          this.task.tensors = this.task.generateTensors(this.task.preProcessedInputs);
           debugLog(this.options.debug, "input tensors", this.task.tensors);
           const session = new InferenceSession(this.binding, model, {
             ...{ debug: this.options.debug ? true : false },
@@ -2756,17 +3203,22 @@ var Ai = class {
           });
           if (inputs.stream) {
             debugLog(this.options.debug, "streaming", false);
-            return await session.run(this.task.tensors, {
+            const response = await session.run(this.task.tensors, {
               stream: true,
-              postProcessing: (r) => {
-                return this.task.postProcessingStream(r);
+              postProcessing: (r, inclen) => {
+                return this.task.postProcessingStream(r, inclen);
               }
             });
+            debugLog(this.options.debug, "cf-ai-req-id", session.lastRequestId);
+            this.lastRequestId = session.lastRequestId;
+            return response;
           } else {
             const response = await session.run(this.task.tensors);
             debugLog(this.options.debug, "response", response);
-            this.task.postProcessing(response, sessionOptions.ctx);
+            this.task.postProcessing(response);
             debugLog(this.options.debug, "post-processed response", this.task.postProcessedOutputs);
+            debugLog(this.options.debug, "cf-ai-req-id", session.lastRequestId);
+            this.lastRequestId = session.lastRequestId;
             return this.task.postProcessedOutputs;
           }
         }
