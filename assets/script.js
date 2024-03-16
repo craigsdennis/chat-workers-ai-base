@@ -1,3 +1,32 @@
+const models = {
+	ga: ['@cf/meta/llama-2-7b-chat-int8', '@cf/meta/llama-2-7b-chat-fp16', '@cf/mistral/mistral-7b-instruct-v0.1'],
+	beta: [
+		'@cf/deepseek-ai/deepseek-math-7b-base',
+		'@cf/deepseek-ai/deepseek-math-7b-instruct',
+		'@cf/defog/sqlcoder-7b-2',
+		'@cf/microsoft/phi-2',
+		'@cf/openchat/openchat-3.5-0106',
+		'@cf/qwen/qwen1.5-0.5b-chat',
+		'@cf/qwen/qwen1.5-1.8b-chat',
+		'@cf/qwen/qwen1.5-14b-chat-awq',
+		'@cf/qwen/qwen1.5-7b-chat-awq',
+		'@cf/thebloke/discolm-german-7b-v1-awq',
+		'@cf/tiiuae/falcon-7b-instruct',
+		'@cf/tinyllama/tinyllama-1.1b-chat-v1.0',
+		'@hf/thebloke/codellama-7b-instruct-awq',
+		'@hf/thebloke/deepseek-coder-6.7b-base-awq',
+		'@hf/thebloke/deepseek-coder-6.7b-instruct-awq',
+		'@hf/thebloke/llama-2-13b-chat-awq',
+		'@hf/thebloke/llamaguard-7b-awq',
+		'@hf/thebloke/mistral-7b-instruct-v0.1-awq',
+		'@hf/thebloke/neural-chat-7b-v3-1-awq',
+		'@hf/thebloke/openchat_3.5-awq',
+		'@hf/thebloke/openhermes-2.5-mistral-7b-awq',
+		'@hf/thebloke/orca-2-13b-awq',
+		'@hf/thebloke/zephyr-7b-beta-awq',
+	],
+};
+
 const domReady = (callback) => {
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', callback);
@@ -9,9 +38,26 @@ const domReady = (callback) => {
 let md;
 domReady(() => {
 	md = window.markdownit();
+	const modelSelect = document.getElementById('model-select');
+	// Set model options
+	for (const model of models.ga) {
+		const opt = document.createElement("option");
+		opt.setAttribute("value", model);
+		opt.textContent = model.split("/").at(-1);
+		modelSelect.appendChild(opt);
+	}
+	const optGroup = document.createElement("optgroup");
+	optGroup.label = "BETA";
+	for (const model of models.beta) {
+		const opt = document.createElement("option");
+		opt.setAttribute("value", model);
+		opt.textContent = model.split("/").at(-1);
+		optGroup.appendChild(opt);
+	}
+	modelSelect.appendChild(optGroup);
 	const chatSettings = retrieveChatSettings();
 	if (chatSettings.model !== undefined) {
-		document.getElementById('model-select').value = chatSettings.model;
+		modelSelect.value = chatSettings.model;
 	}
 	if (chatSettings.systemMessage !== undefined) {
 		document.getElementById('system-message').value = chatSettings.systemMessage;
@@ -31,12 +77,12 @@ function createChatMessageElement(msg) {
 		div.appendChild(response);
 		highlightCode(div);
 		const modelDisplay = document.createElement('p');
-		modelDisplay.className = "message-model";
+		modelDisplay.className = 'message-model';
 		const settings = retrieveChatSettings();
 		modelDisplay.innerText = settings.model;
 		div.appendChild(modelDisplay);
 	} else {
-		const userMessage = document.createElement("p");
+		const userMessage = document.createElement('p');
 		userMessage.innerText = msg.content;
 		div.appendChild(userMessage);
 	}
@@ -142,15 +188,12 @@ function applyChatSettingChanges() {
 	storeMessages([]);
 	const chatSettings = {
 		model: document.getElementById('model-select').value,
-		systemMessage: document.getElementById('system-message').value
+		systemMessage: document.getElementById('system-message').value,
 	};
 	storeChatSettings(chatSettings);
-	for (const display of [...document.getElementsByClassName("model-display")]) {
+	for (const display of [...document.getElementsByClassName('model-display')]) {
 		display.innerText = chatSettings.model;
 	}
-
-
-
 }
 
 document.getElementById('chat-form').addEventListener('submit', function (e) {

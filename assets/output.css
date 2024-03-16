@@ -606,10 +606,6 @@ video {
   color: rgb(107 114 128 / var(--tw-text-opacity));
 }
 
-.static {
-  position: static;
-}
-
 .m-2 {
   margin: 0.5rem;
 }

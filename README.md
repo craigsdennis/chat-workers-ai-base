@@ -2,6 +2,8 @@
 
 A web based chat interface that allows for exploring Text Generation Models on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/). Design is using [tailwind](https://tailwindcss.com/).
 
+This demo makes use of LocalStorage to maintain state.
+
 This is, like all of us, a Work in Progress.
 
 ## Installation
@@ -21,5 +23,5 @@ npm run dev
 
 ```bash
 npm run deploy
-npx wrangler tail
+npx wrangler pages deployment tail
 ```
