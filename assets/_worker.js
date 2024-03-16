@@ -1779,31 +1779,6 @@ app.post("/api/chat", async (c) => {
     }
   });
 });
-app.get("/api/models/html/options", async (c) => {
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${c.env.CLOUDFLARE_ACCOUNT_ID}/ai/models/search`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${c.env.CLOUDFLARE_API_TOKEN}`,
-        "Content-Type": "application/json"
-      }
-    }
-  );
-  const json = await response.json();
-  const models = json.result;
-  const textModels = models.filter((m) => m.task.name === "Text Generation");
-  const groupedTextModels = textModels.reduce((acc, model) => {
-    let key = "ga";
-    const property = model.properties.find((p) => p.property_id === "beta");
-    if (property && property.value === "true") {
-      key = "beta";
-    }
-    acc[key].push(model.name);
-    return acc;
-  }, { ga: [], beta: [] });
-  return c.json(groupedTextModels);
-});
 app.get("/*", (c) => c.env.ASSETS.fetch(c.req.raw));
 var src_default = app;
 export {
