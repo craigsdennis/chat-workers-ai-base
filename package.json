@@ -7,14 +7,14 @@
 		"build:css": "tailwindcss -i ./assets/input.css -o ./assets/output.css",
 		"build:js": "esbuild --bundle src/index.js --format=esm --outfile=assets/_worker.js",
 		"deploy": "wrangler pages deploy assets",
-		"dev": "npm run build && wrangler pages dev assets --compatibility-date=2024-01-29",
+		"dev": "npm run build && wrangler pages dev assets --compatibility-date=2024-03-15",
 		"start": "npm run dev"
 	},
 	"devDependencies": {
 		"concurrently": "^8.2.2",
 		"esbuild": "^0.20.1",
 		"tailwindcss": "^3.4.1",
-		"wrangler": "^3.28.4"
+		"wrangler": "^3.34.2"
 	},
 	"dependencies": {
 		"@cloudflare/ai": "^1.1.0",

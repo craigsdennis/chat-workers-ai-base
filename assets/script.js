@@ -201,6 +201,14 @@ document.getElementById('chat-form').addEventListener('submit', function (e) {
 	sendMessage();
 });
 
+document.getElementById('message-input').addEventListener('keydown', function(event) {
+	// Check if Enter is pressed without holding Shift
+	if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault(); // Prevent the default action (newline)
+			sendMessage();
+	}
+});
+
 document.getElementById('apply-chat-settings').addEventListener('click', function (e) {
 	e.preventDefault();
 	applyChatSettingChanges();

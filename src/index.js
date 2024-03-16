@@ -13,8 +13,8 @@ app.post('/api/chat', async (c) => {
 	if (payload?.config?.systemMessage) {
 		messages.unshift({ role: 'system', content: payload.config.systemMessage });
 	}
-	console.log("Model", payload.config.model);
-	console.log("Messages", JSON.stringify(messages));
+	console.log('Model', payload.config.model);
+	console.log('Messages', JSON.stringify(messages));
 	const eventSourceStream = await ai.run(payload.config.model, { messages, stream: true });
 	// EventSource stream is handy for local event sources, but we want to just stream text
 	const tokenStream = eventSourceStream.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream());
